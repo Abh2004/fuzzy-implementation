@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movies Database</title>
+    <style>
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .movie-card {
+            width: auto;
+            border: 1px solid #ccc;
+            margin: 10px;
+            padding: 10px;
+        }
+        .movie-card img {
+            width: 100%; /* Make the image inside the card take full width */
+            height: auto; /* Maintain aspect ratio */
+            border-radius: 6px; /* Add border radius for image */
+            margin-bottom: 10px; /* Add space between image and other content */
+        }
+
+        #loadingIndicator {
+            display: none;
+            font-weight: bold;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <!-- Add an input for search with autocomplete -->
+        <input type="text" id="searchInput" placeholder="Search movies" autocomplete="off">
+        <!-- Suggestions will be shown here -->
+        <div id="suggestions"></div>
+        <button onclick="searchMovies()">Search</button>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="loadingIndicator">Loading movies...</div>
+
+    <div class="container" id="movieContainer">
+        <!-- Movie cards will be dynamically added here -->
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
+    <script>
+        let allMovies = []; // Store all movies initially
+
+        async function fetchMovies() {
+            try {
+                // Show loading indicator
+                document.getElementById('loadingIndicator').style.display = 'block';
+
+                const response = await fetch('/movies');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch movies');
+                }
+                allMovies = await response.json();
+                renderMovies(allMovies); // Display all movies initially
+
+                // Hide loading indicator
+                document.getElementById('loadingIndicator').style.display = 'none';
+            } catch (error) {
+                console.error('Error:', error.message);
+                const errorContainer = document.getElementById('movieContainer');
+                errorContainer.innerHTML = '<p>Error fetching movies. Please try again later.</p>';
+            }
+        }
+
+        function renderMovies(movies) {
+            const movieContainer = document.getElementById('movieContainer');
+            movieContainer.innerHTML = '';
+
+            if (movies.length === 0) {
+                movieContainer.innerHTML = '<p>No movies found.</p>';
+                return;
+            }
+
+            movies.forEach(movie => {
+                const movieCard = document.createElement('div');
+                movieCard.classList.add('movie-card');
+
+                const title = document.createElement('h3');
+                title.textContent = movie.title;
+
+                const director = document.createElement('p');
+                director.textContent = 'Director: ' + movie.directors.join(', ');
+
+                const year = document.createElement('p');
+                year.textContent = 'Year: ' + movie.year;
+
+                const poster = document.createElement('img');
+                poster.src = movie.poster;
+                poster.alt = movie.title + ' Poster';
+                poster.classList.add('poster');
+
+                const plot = document.createElement('p');
+                plot.textContent = 'Plot: ' + movie.plot;
+
+                movieCard.appendChild(title);
+                movieCard.appendChild(director);
+                movieCard.appendChild(year);
+                movieCard.appendChild(poster);
+                movieCard.appendChild(plot);
+
+                movieContainer.appendChild(movieCard);
+            });
+        }
+
+        async function searchMovies() {
+            const searchQuery = document.getElementById('searchInput').value.trim();
+            if (!searchQuery) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            const fuse = new Fuse(allMovies, { keys: ['title'], includeScore: true });
+            const searchResults = fuse.search(searchQuery);
+            const filteredMovies = searchResults.map(result => result.item);
+
+            renderMovies(filteredMovies);
+        }
+
+        // Function to show suggestions
+        function showSuggestions() {
+            const searchQuery = document.getElementById('searchInput').value.trim();
+            if (!searchQuery) {
+                document.getElementById('suggestions').innerHTML = '';
+                return;
+            }
+
+            const fuse = new Fuse(allMovies, { keys: ['title'], includeScore: true });
+            const searchResults = fuse.search(searchQuery);
+            const suggestions = searchResults.map(result => result.item.title);
+
+            const suggestionsElement = document.getElementById('suggestions');
+            suggestionsElement.innerHTML = '';
+
+            suggestions.forEach(suggestion => {
+                const suggestionItem = document.createElement('div');
+                suggestionItem.textContent = suggestion;
+                suggestionItem.classList.add('suggestion');
+                suggestionItem.addEventListener('click', () => {
+                    document.getElementById('searchInput').value = suggestion;
+                    suggestionsElement.innerHTML = ''; // Clear suggestions
+                    searchMovies(); // Perform search
+                });
+                suggestionsElement.appendChild(suggestionItem);
+            });
+        }
+
+        // Event listener for input to show suggestions
+        document.getElementById('searchInput').addEventListener('input', showSuggestions);
+
+        // Fetch movies when the page loads
+        window.onload = fetchMovies;
+    </script>
+
+</body>
+</html>
